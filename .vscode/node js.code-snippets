@@ -1,0 +1,18 @@
+{
+
+  "Print to console": {
+    "scope": "javascript,typescript",
+    "prefix": "log",
+    "body": ["console.log('$1');", "$2"],
+    "description": "Log output to console"
+  },
+
+  "import package": {
+    "scope": "javascript,typescript",
+    "prefix": "rq",
+    "body": ["const ${1:name}  = require( '${2:name package}' ); "$3""],
+    "description": "Log output to console"
+  }
+ 
+
+}
