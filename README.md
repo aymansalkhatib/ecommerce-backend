@@ -32,9 +32,10 @@
 ```mermaid
 flowchart TB
     Client(["Web or mobile client"]) -->|"HTTPS · Bearer JWT"| App
+    Stripe["Stripe Checkout"] <-->|"sessions · webhook"| App
 
     subgraph App["Express application"]
-        direction LR
+        direction TB
         MW["Global middleware<br/>CORS · compression · rate limit · HPP"] --> Router["Routers<br/>/api/v1/*"]
         Router --> Guards["protect → allowedTo(roles)"]
         Guards --> Upload["Multer + sharp<br/>image uploads"]
@@ -42,11 +43,9 @@ flowchart TB
         Validate --> Services["Services and<br/>handler factory"]
     end
 
-    Services --> DB[("MongoDB<br/>via Mongoose")]
-    Services --> Disk[("uploads/<br/>served as static files")]
-    Services --> Mail["SMTP<br/>Nodemailer"]
-    Services <--> Stripe["Stripe Checkout"]
-    Stripe -->|"POST /webhook-checkout"| App
+    App --> DB[("MongoDB<br/>via Mongoose")]
+    App --> Disk[("uploads/<br/>static files")]
+    App --> Mail["SMTP<br/>Nodemailer"]
 ```
 
 Shared create, read, update, delete and list handlers live in a single handler factory, so each resource service stays small. Expected failures are raised as `ApiError` instances and turned into JSON responses by one global error middleware.
@@ -75,21 +74,20 @@ Addresses and the wishlist are stored on the user document. An order keeps its o
 ### Card payment flow
 
 ```mermaid
+%%{init: {"sequence": {"mirrorActors": false}}}%%
 sequenceDiagram
     autonumber
     participant C as Client
     participant A as API
     participant S as Stripe
-    participant D as MongoDB
 
-    C->>A: GET /api/v1/orders/checkout-session/:cartId
-    A->>S: Create Checkout Session for the cart total
+    C->>A: Request a checkout session
+    A->>S: Create Checkout Session
     S-->>A: Session
-    A-->>C: Session (redirect URL)
-    C->>S: Pay on the Stripe-hosted page
-    S->>A: POST /webhook-checkout (checkout.session.completed)
-    A->>A: Verify the Stripe signature
-    A->>D: Create paid card order, update stock, delete cart
+    A-->>C: Session URL
+    C->>S: Pay on the hosted page
+    S->>A: Webhook: session completed
+    Note over A: Verify the signature, save the paid order,<br/>update stock and delete the cart
 ```
 
 ## API
